@@ -14,6 +14,10 @@ mod dxf_read;
 mod dxf_table;
 mod dxf_write;
 mod dxf_xref;
+#[cfg(feature = "pdf")]
+pub mod pdf;
+#[cfg(not(feature = "pdf"))]
+#[path = "pdf_disabled.rs"]
 pub mod pdf;
 pub mod plotter;
 /// Raster image files (PNG, JPEG, BMP, TIFF) decoded to pixels.
@@ -65,6 +69,7 @@ pub type Result<T> = std::result::Result<T, IoError>;
 pub mod dwg_worker {
     pub use cadcraft_dwg::{WORKER_ARG, serve_if_asked, use_own_worker};
     #[cfg(all(not(target_arch = "wasm32"), not(all(target_os = "freebsd", target_arch = "aarch64"))))]
+    #[cfg(feature = "dwg")]
     pub use cadcraft_dwg::{crash_worker_for_test, use_worker};
 }
 

@@ -324,6 +324,7 @@ fn lock() -> MutexGuard<'static, Db> {
 
 /// The platform's system font directories, in search order.
 #[cfg(not(target_arch = "wasm32"))]
+#[allow(dead_code)] // Disabled external font discovery in this selected profile.
 fn system_font_dirs() -> Vec<PathBuf> {
     let mut dirs: Vec<PathBuf> = Vec::new();
     if cfg!(target_os = "macos") {
@@ -354,44 +355,17 @@ fn system_font_dirs() -> Vec<PathBuf> {
 /// Every font file under [`system_font_dirs`], by lower-case file stem.
 #[cfg(not(target_arch = "wasm32"))]
 fn scan() -> HashMap<String, PathBuf> {
-    scan_dirs(&system_font_dirs(), false)
+    // External font discovery is outside the audited selected profile.
+    HashMap::new()
 }
 
 /// Font files under `dirs` by lower-case stem; the first file found with a stem wins
 /// (`in_order`: a folder listed earlier wins over a later one).
 #[cfg(not(target_arch = "wasm32"))]
 fn scan_dirs(dirs: &[PathBuf], in_order: bool) -> HashMap<String, PathBuf> {
-    let mut out = HashMap::new();
-    let mut stack: Vec<PathBuf> = if in_order { dirs.iter().rev().cloned().collect() } else { dirs.to_vec() };
-    let mut seen = 0usize;
-    let mut visited = std::collections::HashSet::new();
-    while let Some(d) = stack.pop() {
-        if !first_visit(&mut visited, &d) {
-            continue;
-        }
-        let Ok(rd) = std::fs::read_dir(&d) else { continue };
-        for e in rd.flatten() {
-            seen += 1;
-            if seen > 20_000 {
-                return out;
-            }
-            let p = e.path();
-            // Linked folders are followed (font folders often are links); `first_visit` keeps a
-            // circle of links from reading a folder twice.
-            if p.is_dir() {
-                stack.push(p);
-                continue;
-            }
-            let ext = p.extension().map(|x| x.to_string_lossy().to_ascii_lowercase()).unwrap_or_default();
-            if !matches!(ext.as_str(), "ttf" | "otf" | "ttc" | "otc") {
-                continue;
-            }
-            if let Some(stem) = p.file_stem().map(|s| s.to_string_lossy().to_ascii_lowercase()) {
-                out.entry(stem).or_insert(p);
-            }
-        }
-    }
-    out
+    // External font discovery is outside the audited selected profile.
+    let _ = (dirs, in_order);
+    HashMap::new()
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -485,6 +459,7 @@ pub fn rescan() {
 /// Whether folder `d` is read for the first time (by its real path: a link to a folder already
 /// read, or a circle of links, is not read again).
 #[cfg(not(target_arch = "wasm32"))]
+#[allow(dead_code)] // Disabled external font discovery in this selected profile.
 fn first_visit(visited: &mut std::collections::HashSet<PathBuf>, d: &std::path::Path) -> bool {
     visited.insert(std::fs::canonicalize(d).unwrap_or_else(|_| d.to_path_buf()))
 }
@@ -493,34 +468,9 @@ fn first_visit(visited: &mut std::collections::HashSet<PathBuf>, d: &std::path::
 /// font scan.
 #[cfg(not(target_arch = "wasm32"))]
 fn shx_dirs(dirs: &[PathBuf]) -> Vec<PathBuf> {
-    let mut out: Vec<PathBuf> = Vec::new();
-    let mut stack: Vec<PathBuf> = dirs.iter().rev().cloned().collect();
-    let mut seen = 0usize;
-    let mut visited = std::collections::HashSet::new();
-    while let Some(d) = stack.pop() {
-        if !first_visit(&mut visited, &d) {
-            continue;
-        }
-        let Ok(rd) = std::fs::read_dir(&d) else { continue };
-        let mut subs = Vec::new();
-        let mut has_shx = false;
-        for e in rd.flatten() {
-            seen += 1;
-            if seen > 20_000 {
-                return out;
-            }
-            if e.path().is_dir() {
-                subs.push(e.path());
-            } else if e.path().extension().is_some_and(|x| x.eq_ignore_ascii_case("shx")) {
-                has_shx = true;
-            }
-        }
-        if has_shx && !out.contains(&d) {
-            out.push(d);
-        }
-        stack.extend(subs.into_iter().rev());
-    }
-    out
+    // External font discovery is outside the audited selected profile.
+    let _ = dirs;
+    Vec::new()
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -583,17 +533,37 @@ pub fn available(name: &str) -> bool {
 
 #[cfg(not(target_arch = "wasm32"))]
 fn read_file(path: &std::path::Path) -> Option<Vec<u8>> {
-    /// Font files larger than this are never read.
-    const MAX_FILE_BYTES: u64 = 96 << 20;
-    if std::fs::metadata(path).ok()?.len() > MAX_FILE_BYTES {
-        return None;
-    }
-    std::fs::read(path).ok()
+    // Slab's selected profile has no audited external font input.
+    let _ = path;
+    None
 }
 
 #[cfg(target_arch = "wasm32")]
 fn read_file(_path: &std::path::Path) -> Option<Vec<u8>> {
     None
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod slab_profile_tests {
+    use super::*;
+
+    #[test]
+    fn external_font_bytes_are_never_read() {
+        let executable = std::env::current_exe().expect("test executable exists");
+        assert!(read_file(&executable).is_none());
+    }
+
+    #[test]
+    fn synthetic_font_directory_is_not_discovered() {
+        let dir = std::env::temp_dir().join(format!("slab-cadcraft-font-gate-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("scratch directory");
+        let font = dir.join("SlabOriginalSynthetic.ttf");
+        std::fs::write(&font, b"original synthetic discovery marker").expect("marker");
+        assert!(scan_dirs(std::slice::from_ref(&dir), true).is_empty());
+        assert!(shx_dirs(std::slice::from_ref(&dir)).is_empty());
+        std::fs::remove_file(font).expect("remove marker");
+        std::fs::remove_dir(dir).expect("remove empty scratch directory");
+    }
 }
 
 impl Db {

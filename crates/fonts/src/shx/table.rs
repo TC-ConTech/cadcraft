@@ -269,31 +269,8 @@ pub fn installed() -> Vec<String> {
 /// on a case-sensitive file system).
 #[cfg(not(target_arch = "wasm32"))]
 fn read_from(dirs: &[PathBuf], name: &str) -> Option<Vec<u8>> {
-    use std::io::Read as _;
-    let read = |file: &Path| -> Option<Vec<u8>> {
-        let meta = std::fs::metadata(file).ok()?;
-        if !meta.is_file() || meta.len() > MAX_FILE_BYTES as u64 {
-            return None;
-        }
-        let mut bytes = Vec::new();
-        let limit = u64::try_from(MAX_FILE_BYTES).unwrap_or(u64::MAX).saturating_add(1);
-        std::fs::File::open(file).and_then(|f| f.take(limit).read_to_end(&mut bytes)).ok()?;
-        Some(bytes)
-    };
-    for d in dirs {
-        if let Some(b) = [d.join(name), d.join(name.to_ascii_uppercase())].iter().find_map(|f| read(f)) {
-            return Some(b);
-        }
-        let Ok(entries) = std::fs::read_dir(d) else { continue };
-        let found = entries
-            .take(MAX_DIR_ENTRIES)
-            .filter_map(Result::ok)
-            .find(|e| e.file_name().to_str().is_some_and(|n| n.eq_ignore_ascii_case(name)))
-            .and_then(|e| read(&e.path()));
-        if found.is_some() {
-            return found;
-        }
-    }
+    // External font discovery is outside the audited selected profile.
+    let _ = (dirs, name);
     None
 }
 

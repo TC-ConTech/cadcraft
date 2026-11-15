@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/*", "apps/*", "xtask"]
+members = ["crates/geom", "crates/dxf", "crates/dwg", "crates/color", "crates/doc", "crates/constraints", "crates/fonts", "crates/render", "crates/io", "crates/engine", "crates/mcp", "apps/cadcraft-cli"]
 # default-members
 
 [workspace.package]
@@ -14,13 +14,13 @@ repository = "https://github.com/storytold/cadcraft"
 # internal
 cadcraft-geom = { path = "crates/geom" }
 cadcraft-dxf = { path = "crates/dxf" }
-cadcraft-dwg = { path = "crates/dwg" }
+cadcraft-dwg = { path = "crates/dwg", default-features = false }
 cadcraft-color = { path = "crates/color" }
 cadcraft-doc = { path = "crates/doc" }
 cadcraft-constraints = { path = "crates/constraints" }
 cadcraft-fonts = { path = "crates/fonts" }
 cadcraft-render = { path = "crates/render" }
-cadcraft-io = { path = "crates/io" }
+cadcraft-io = { path = "crates/io", default-features = false }
 cadcraft-engine = { path = "crates/engine" }
 cadcraft-ui-egui = { path = "crates/ui-egui" }
 cadcraft-mcp = { path = "crates/mcp" }
@@ -54,7 +54,7 @@ unicode-bidi = "0.3.18"
 # Line-break opportunities between Thai words for MTEXT word wrap (Thai writes no spaces between
 # words): UAX #14 with ICU4X's compiled-in LSTM word model (not its dictionaries).
 icu_segmenter = { version = "~2.3", default-features = false, features = ["compiled_data", "lstm"] }
-image = { version = "0.25", default-features = false, features = ["png", "jpeg", "bmp", "tiff"] }
+image = { version = "0.25", default-features = false, features = ["png"] }
 encoding_rs = "0.8.35"
 # XML for the SVG reader (streaming parser, no entity expansion beyond the five predefined ones)
 quick-xml = "0.42"
